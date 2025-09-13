@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+//! A command-line tool for managing and downloading Phrack magazine issues.
+
+#![deny(missing_docs)]
 use clap::{Parser, Subcommand};
 use enum_iterator::all;
 
