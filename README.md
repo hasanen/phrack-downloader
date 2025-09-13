@@ -73,3 +73,9 @@ cargo run -- convert-issue --issue 1 --format txt # generates single .txt of all
 cargo run -- convert-issue --all-issues --format txt # generates single .txt of all articles per publication/issue
 cargo run -- sync-with-calibre # ability to sync generated txt, pdf and epub files with calibre library, with proper metadata (eg. using series-field)
 ```
+
+## TODO:
+
+- [ ] Implement commands in "Commands TBD"
+- [ ] Add GH Actions to check the build
+- [ ] Add GH action to publish build to crates.io
