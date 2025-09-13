@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::Hash;

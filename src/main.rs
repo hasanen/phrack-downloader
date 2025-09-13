@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use clap::{Parser, Subcommand};
 use enum_iterator::all;
 

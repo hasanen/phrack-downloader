@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 use crate::strict_string::{DownloadPath, PhrackArchiveUrl};
 use clap::ValueEnum;
 use enum_iterator::Sequence;
