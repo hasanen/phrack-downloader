@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use enum_iterator::all;
 
 mod config;
 mod strict_string;
@@ -16,7 +17,7 @@ struct CliArgs {
 enum Commands {
     Config {
         #[arg(value_enum)]
-        config_key: ConfigKey,
+        config_key: Option<ConfigKey>,
         value: Option<String>,
     },
 }
@@ -29,6 +30,15 @@ fn main() {
 
     match &args.command {
         Commands::Config { config_key, value } => {
+            if config_key.is_none() {
+                println!("Current configs:");
+                for key in all::<ConfigKey>().collect::<Vec<_>>() {
+                    println!("- {:?} -> {}", key, config.get_value(&key));
+                }
+                return;
+            }
+
+            let config_key = config_key.as_ref().unwrap();
             if value.is_some() {
                 println!(
                     "Setting config key: {:?} to value: {}",

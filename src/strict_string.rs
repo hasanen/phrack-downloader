@@ -41,3 +41,4 @@ macro_rules! strict_string {
 }
 
 strict_string!(DownloadPath);
+strict_string!(PhrackArchiveUrl);
