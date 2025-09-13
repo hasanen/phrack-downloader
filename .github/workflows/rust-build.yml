@@ -22,15 +22,14 @@ jobs:
         run: cargo test --all
       - name: Check SPDX headers in Rust files
         run: |
-          missing_files=""
+          missing=0
           for file in $(find src -name '*.rs'); do
             if ! grep -q '^// SPDX-License-Identifier: MIT' "$file"; then
               echo "Missing SPDX header in $file"
-              missing_files="$missing_files\n$file"
+              missing=1
             fi
           done
-          if [ -n "$missing_files" ]; then
-            echo "\nSummary: The following files are missing SPDX headers:"
-            echo -e "$missing_files"
+          if [ $missing -ne 0 ]; then
+            echo "Some files are missing SPDX headers."
             exit 1
           fi
