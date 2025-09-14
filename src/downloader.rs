@@ -60,11 +60,17 @@ impl Downloader {
             issue_number,
             download_path.display()
         );
-        if !download_path.exists() {
+        if download_path.exists() && !refresh {
             println!(
-                "Download folder doesn't exist, creating: {}",
+                "Issue {} already downloaded at {}, skipping (use --refresh to re-download)",
+                issue_number,
                 download_path.display()
             );
+            return Ok(());
+        } else {
+            if refresh && download_path.exists() {
+                fs::remove_dir_all(&download_path)?;
+            }
             fs::create_dir_all(&download_path)?;
         }
 
