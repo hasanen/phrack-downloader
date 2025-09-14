@@ -15,10 +15,6 @@ use std::{
 pub struct Downloader {
     config: Config,
 }
-struct IssueUrl {
-    issue_number: u32,
-    issue_uri_path: String,
-}
 #[derive(Debug)]
 struct ArticleUrl {
     issue_number: u32,
@@ -77,8 +73,7 @@ impl Downloader {
         let issue_articles_html = self.fetch_html(&self.issue_url(issue_number)).await?;
         let issue_articles = self.parse_articles(&issue_articles_html, issue_number)?;
 
-        self.download_articles(&issue_articles, &download_path, refresh)
-            .await?;
+        self.download_articles(&issue_articles).await?;
 
         Ok(())
     }
@@ -172,8 +167,6 @@ impl Downloader {
     async fn download_articles(
         &self,
         articles: &[ArticleUrl],
-        download_path: &PathBuf,
-        refresh: bool,
     ) -> Result<(), PhrackDownloaderError> {
         let stream = stream::iter(articles.into_iter().map(|article| async move {
             let body = self.fetch_url(&self.article_url(article)).await?;
