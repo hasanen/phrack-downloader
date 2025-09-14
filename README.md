@@ -73,13 +73,35 @@ Example:
 cargo run -- config download-path ./downloads/
 ```
 
+### Download Issues
+
+Download a single issue:
+
+```sh
+cargo run -- download-issue --issue 1
+```
+
+Download a single issue and refresh (remove old downloaded issue first):
+
+```sh
+cargo run -- download-issue --issue 1 --refresh
+```
+
+Download all non-downloaded issues:
+
+```sh
+cargo run -- download-issue --all-issues
+```
+
+Purge existing downloads and re-download all issues:
+
+```sh
+cargo run -- download-issue --all-issues --refresh
+```
+
 ### Commands TBD
 
 ```sh
-cargo run -- download-issue --issue 1 # download single issue
-cargo run -- download-issue --issue 1 --refresh # with refresh, old downloaded issue will be removed
-cargo run -- download-issue --all-issues # downloads all non-downloaded issues
-cargo run -- download-issue --all-issues --refresh # purges existing downloads and re-downloads all issues
 cargo run -- check-new-issues # Check if there are new issues
 cargo run -- convert-issue --issue 1 --format txt # generates single .txt of all articles
 cargo run -- convert-issue --all-issues --format txt # generates single .txt of all articles per publication/issue
@@ -106,5 +128,6 @@ For more details, see the [Conventional Commits documentation](https://www.conve
 ## TODO:
 
 - [ ] Implement commands in "Commands TBD"
+- [ ] persist configuration changes
 - [ ] Add GH Actions to check the build
 - [ ] Add GH action to publish build to crates.io
