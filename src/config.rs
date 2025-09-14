@@ -21,6 +21,10 @@ pub fn load_config() -> Config {
         phrack_archive_url: PhrackArchiveUrl::new("https://archives.phrack.org/issues/"),
     }
 }
+pub fn save_config(_config: &Config) {
+    // Placeholder for saving the config to a file
+    println!("Config saved (placeholder)");
+}
 
 impl Config {
     pub fn get_value(&self, key: &ConfigKey) -> String {
@@ -39,5 +43,11 @@ impl Config {
                 self.phrack_archive_url = PhrackArchiveUrl::new(value);
             }
         }
+    }
+}
+impl ConfigKey {
+    pub fn as_arg(&self) -> String {
+        // to_possible_value() always returns Some for ValueEnum
+        self.to_possible_value().unwrap().get_name().to_string()
     }
 }

@@ -4,12 +4,13 @@
 
 #![deny(missing_docs)]
 use clap::{ArgGroup, Parser, Subcommand};
+use comfy_table::Table;
 use enum_iterator::all;
 
 mod config;
 mod downloader;
 mod strict_string;
-use crate::config::{ConfigKey, load_config};
+use crate::config::{ConfigKey, load_config, save_config};
 use crate::downloader::Downloader;
 
 #[derive(Parser, Debug)]
@@ -47,33 +48,30 @@ fn main() {
     let args = CliArgs::parse();
     let mut config = load_config();
 
-    dbg!(&args);
-
     match &args.command {
         Commands::Config { config_key, value } => {
+            let mut table = Table::new();
+            table.set_header(vec!["Config Key", "Value"]);
+
             if config_key.is_none() {
-                println!("Current configs:");
                 for key in all::<ConfigKey>().collect::<Vec<_>>() {
-                    println!("- {:?} -> {}", key, config.get_value(&key));
+                    table.add_row(vec![format!("{}", key.as_arg()), config.get_value(&key)]);
                 }
-                return;
+            } else {
+                let config_key = config_key.as_ref().unwrap();
+                if value.is_some() {
+                    config.set_value(config_key, value.as_ref().unwrap());
+                    save_config(&config);
+                    println!("Updated config");
+                }
+
+                table.add_row(vec![
+                    format!("{}", config_key.as_arg()),
+                    config.get_value(&config_key),
+                ]);
             }
 
-            let config_key = config_key.as_ref().unwrap();
-            if value.is_some() {
-                println!(
-                    "Setting config key: {:?} to value: {}",
-                    config_key,
-                    value.as_ref().unwrap()
-                );
-                config.set_value(config_key, value.as_ref().unwrap());
-            }
-
-            println!(
-                "config: {:?} -> {}",
-                config_key,
-                config.get_value(&config_key)
-            );
+            println!("{table}");
         }
         Commands::DownloadIssue(args) => {
             let downloader = Downloader::new(config);
