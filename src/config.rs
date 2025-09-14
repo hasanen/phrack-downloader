@@ -17,7 +17,7 @@ pub struct Config {
 pub fn load_config() -> Config {
     // Placeholder implementation
     Config {
-        download_path: DownloadPath::new("./config/phrack-downloader/issues/"),
+        download_path: DownloadPath::new("~/.config/phrack-downloader/issues/"),
         phrack_archive_url: PhrackArchiveUrl::new("https://archives.phrack.org/issues/"),
     }
 }
