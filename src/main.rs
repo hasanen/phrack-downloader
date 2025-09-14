@@ -9,6 +9,7 @@ use enum_iterator::all;
 
 mod config;
 mod downloader;
+mod phrack_downloader_error;
 mod strict_string;
 use crate::config::{ConfigKey, load_config, save_config};
 use crate::downloader::Downloader;
@@ -42,6 +43,9 @@ struct DownloadIssueArgs {
 
     #[arg(long = "all-issues", default_value_t = false)]
     all_issues: bool,
+
+    #[arg(long = "refresh", default_value_t = false)]
+    refresh: bool,
 }
 
 fn main() {
@@ -75,11 +79,12 @@ fn main() {
         }
         Commands::DownloadIssue(args) => {
             let downloader = Downloader::new(config);
+            let refresh = args.refresh;
 
             if args.all_issues {
-                downloader.download_all_issues();
+                downloader.download_all_issues(refresh);
             } else if let Some(issue) = args.issue {
-                downloader.download_issue(issue);
+                downloader.download_issue(issue, refresh);
             }
         }
     }
