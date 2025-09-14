@@ -6,6 +6,7 @@
 use clap::{ArgGroup, Parser, Subcommand};
 use comfy_table::Table;
 use enum_iterator::all;
+use std::process;
 
 mod config;
 mod downloader;
@@ -13,7 +14,18 @@ mod phrack_downloader_error;
 mod strict_string;
 use crate::config::{ConfigKey, load_config, save_config};
 use crate::downloader::Downloader;
+use crate::phrack_downloader_error::PhrackDownloaderError;
 
+#[derive(Copy, Clone, Debug)]
+enum ExitCode {
+    Success = 0,
+    GenericError = 1,
+}
+impl ExitCode {
+    fn as_i32(&self) -> i32 {
+        *self as i32
+    }
+}
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct CliArgs {
@@ -47,10 +59,16 @@ struct DownloadIssueArgs {
     #[arg(long = "refresh", default_value_t = false)]
     refresh: bool,
 }
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = CliArgs::parse();
-    let mut config = load_config();
+    let mut config = match load_config() {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Failed to load configuration: {}", e);
+            process::exit(ExitCode::GenericError.as_i32());
+        }
+    };
 
     match &args.command {
         Commands::Config { config_key, value } => {
@@ -82,10 +100,27 @@ fn main() {
             let refresh = args.refresh;
 
             if args.all_issues {
-                downloader.download_all_issues(refresh);
+                match downloader.download_all_issues(refresh).await {
+                    Ok(_) => {}
+                    Err(e) => handle_error(&e),
+                };
             } else if let Some(issue) = args.issue {
-                downloader.download_issue(issue, refresh);
+                match downloader.download_issue(issue, refresh).await {
+                    Ok(_) => {}
+                    Err(e) => handle_error(&e),
+                }
             }
         }
     }
+
+    process::exit(ExitCode::Success.as_i32());
+}
+
+fn handle_error(error: &PhrackDownloaderError) {
+    let exit_code = match error {
+        _ => ExitCode::GenericError,
+    };
+
+    eprintln!("Error: {}", &error);
+    process::exit(exit_code.as_i32());
 }

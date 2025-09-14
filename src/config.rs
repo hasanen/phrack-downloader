@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
-use crate::strict_string::{DownloadPath, PhrackArchiveUrl};
+
+use crate::{
+    phrack_downloader_error::PhrackDownloaderError,
+    strict_string::{DownloadPath, PhrackArchiveUrl},
+};
 use clap::ValueEnum;
+use directories_next::UserDirs;
 use enum_iterator::Sequence;
+use std::path::PathBuf;
 
 #[derive(Clone, ValueEnum, Debug, PartialEq, Sequence)]
 pub enum ConfigKey {
@@ -10,16 +16,19 @@ pub enum ConfigKey {
 }
 
 pub struct Config {
-    download_path: DownloadPath,
+    download_path: PathBuf,
     phrack_archive_url: PhrackArchiveUrl,
 }
 
-pub fn load_config() -> Config {
+pub fn load_config() -> Result<Config, PhrackDownloaderError> {
     // Placeholder implementation
-    Config {
-        download_path: DownloadPath::new("~/.config/phrack-downloader/issues/"),
-        phrack_archive_url: PhrackArchiveUrl::new("https://archives.phrack.org/issues/"),
-    }
+    let user_dirs = UserDirs::new().unwrap();
+    Ok(Config {
+        download_path: PathBuf::from(user_dirs.home_dir())
+            .join(".config/phrack-downloader/issues/"),
+
+        phrack_archive_url: PhrackArchiveUrl::new("https://archives.phrack.org"),
+    })
 }
 pub fn save_config(_config: &Config) {
     // Placeholder for saving the config to a file
@@ -29,7 +38,7 @@ pub fn save_config(_config: &Config) {
 impl Config {
     pub fn get_value(&self, key: &ConfigKey) -> String {
         match key {
-            ConfigKey::DownloadPath => self.download_path.to_string(),
+            ConfigKey::DownloadPath => self.download_path.display().to_string(),
             ConfigKey::PhrackArchiveUrl => self.phrack_archive_url.to_string(),
         }
     }
@@ -37,7 +46,7 @@ impl Config {
     pub fn set_value(&mut self, key: &ConfigKey, value: &str) {
         match key {
             ConfigKey::DownloadPath => {
-                self.download_path = DownloadPath::new(value);
+                self.download_path = PathBuf::from(value);
             }
             ConfigKey::PhrackArchiveUrl => {
                 self.phrack_archive_url = PhrackArchiveUrl::new(value);
