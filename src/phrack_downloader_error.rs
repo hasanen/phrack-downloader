@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 use thiserror::Error;
 
 #[derive(Error, Debug)]
