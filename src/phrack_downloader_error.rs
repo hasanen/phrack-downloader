@@ -10,6 +10,8 @@ pub enum PhrackDownloaderError {
     ParseInt(#[from] std::num::ParseIntError),
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
-    #[error("unknown error")]
-    Unknown,
+    #[error("TOML error: {0}")]
+    Toml(#[from] toml::ser::Error),
+    #[error("TOML deserialization error: {0}")]
+    TomlDe(#[from] toml::de::Error),
 }

@@ -75,22 +75,29 @@ async fn main() {
             let mut table = Table::new();
             table.set_header(vec!["Config Key", "Value"]);
 
-            if config_key.is_none() {
-                for key in all::<ConfigKey>().collect::<Vec<_>>() {
-                    table.add_row(vec![format!("{}", key.as_arg()), config.get_value(&key)]);
-                }
-            } else {
-                let config_key = config_key.as_ref().unwrap();
-                if value.is_some() {
-                    config.set_value(config_key, value.as_ref().unwrap());
-                    save_config(&config);
-                    println!("Updated config");
+            if let Some(config_key) = config_key {
+                let config_key = config_key;
+
+                match value {
+                    Some(v) => {
+                        config.set_value(config_key, v);
+
+                        match save_config(&config) {
+                            Ok(_) => println!("Updated config"),
+                            Err(e) => handle_error(&e),
+                        }
+                    }
+                    None => (),
                 }
 
                 table.add_row(vec![
                     format!("{}", config_key.as_arg()),
                     config.get_value(&config_key),
                 ]);
+            } else {
+                for key in all::<ConfigKey>().collect::<Vec<_>>() {
+                    table.add_row(vec![format!("{}", key.as_arg()), config.get_value(&key)]);
+                }
             }
 
             println!("{table}");

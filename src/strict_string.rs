@@ -21,10 +21,6 @@ macro_rules! strict_string {
             pub fn new<S: Into<String>>(input: S) -> Self {
                 Self(input.into())
             }
-
-            pub fn as_str(&self) -> &str {
-                self.0.as_str()
-            }
         }
 
         impl From<String> for $name {
@@ -41,5 +37,4 @@ macro_rules! strict_string {
     };
 }
 
-strict_string!(DownloadPath);
 strict_string!(PhrackArchiveUrl);

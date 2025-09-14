@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-use crate::{
-    phrack_downloader_error::PhrackDownloaderError,
-    strict_string::{DownloadPath, PhrackArchiveUrl},
-};
+use crate::{phrack_downloader_error::PhrackDownloaderError, strict_string::PhrackArchiveUrl};
 use clap::ValueEnum;
 use directories_next::UserDirs;
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Clone, ValueEnum, Debug, PartialEq, Sequence)]
@@ -15,24 +13,44 @@ pub enum ConfigKey {
     PhrackArchiveUrl,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Config {
     download_path: PathBuf,
     phrack_archive_url: PhrackArchiveUrl,
 }
 
 pub fn load_config() -> Result<Config, PhrackDownloaderError> {
-    // Placeholder implementation
-    let user_dirs = UserDirs::new().unwrap();
-    Ok(Config {
-        download_path: PathBuf::from(user_dirs.home_dir())
-            .join(".config/phrack-downloader/issues/"),
+    if !config_path().exists() {
+        std::fs::create_dir_all(config_dir())?;
+        let default_config = Config {
+            download_path: config_dir().join("issues"),
+            phrack_archive_url: PhrackArchiveUrl::new("https://archives.phrack.org"),
+        };
+        save_config(&default_config)?;
+    }
+    let content = std::fs::read_to_string(config_path())?;
+    let config: Config = toml::from_str(&content)?;
 
-        phrack_archive_url: PhrackArchiveUrl::new("https://archives.phrack.org"),
-    })
+    Ok(config)
 }
-pub fn save_config(_config: &Config) {
-    // Placeholder for saving the config to a file
-    println!("Config saved (placeholder)");
+pub fn save_config(config: &Config) -> Result<(), PhrackDownloaderError> {
+    let toml_str = toml::to_string_pretty(&config)?;
+    std::fs::write(config_path(), toml_str)?;
+
+    Ok(())
+}
+
+fn user_dir() -> PathBuf {
+    let user_dirs = UserDirs::new().unwrap();
+    PathBuf::from(user_dirs.home_dir())
+}
+
+fn config_dir() -> PathBuf {
+    user_dir().join(".config/phrack-downloader")
+}
+
+fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
 }
 
 impl Config {
