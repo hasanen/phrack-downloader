@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 use crate::config::Config;
-use crate::models::article::{self, Article};
+use crate::models::article::Article;
 use crate::models::issue::Issue;
 use crate::phrack::html_parser::{parse_articles, parse_issues};
 use crate::phrack_downloader_error::PhrackDownloaderError;
@@ -30,9 +30,20 @@ impl Downloader {
         let issues = parse_issues(&document)?;
 
         println!("Found {} issues", issues.len());
+        println!("Fetching information for issues");
+        let mut downloadable_issues: Vec<Issue> = vec![];
         for issue in issues {
-            self.download_issue(&issue, refresh).await?
+            let issue_path = self.issue_path(&issue);
+
+            if self.continue_issue_download(&issue, refresh)? {
+                downloadable_issues.push(self.fetch_issue(&issue).await?)
+            } else {
+                self.print_skip_message(&issue, &issue_path);
+            }
         }
+
+        self.download_articles(&downloadable_issues).await?;
+
         Ok(())
     }
 
@@ -41,32 +52,50 @@ impl Downloader {
         issue: &Issue,
         refresh: bool,
     ) -> Result<(), PhrackDownloaderError> {
-        let download_path = self
-            .config
-            .download_path()
-            .join(issue.issue_number.to_string());
+        let issue_path = self.issue_path(issue);
 
-        println!("Downloading issue {} to {}", issue, download_path.display());
-        if download_path.exists() && !refresh {
-            println!(
-                "Issue {} already downloaded at {}, skipping (use --refresh to re-download)",
-                issue,
-                download_path.display()
-            );
+        if !self.continue_issue_download(issue, refresh)? {
+            self.print_skip_message(issue, &issue_path);
             return Ok(());
-        } else {
-            if refresh && download_path.exists() {
-                fs::remove_dir_all(&download_path)?;
-            }
-            fs::create_dir_all(&download_path)?;
         }
 
-        let issue_articles_html = self.fetch_html(&self.issue_url(issue)).await?;
-        let issue = parse_articles(&issue_articles_html, issue)?;
-
+        let issue = self.fetch_issue(issue).await?;
         self.download_articles(&issue.into()).await?;
-
         Ok(())
+    }
+
+    fn continue_issue_download(
+        &self,
+        issue: &Issue,
+        refresh: bool,
+    ) -> Result<bool, PhrackDownloaderError> {
+        let issue_path = self.issue_path(issue);
+
+        if issue_path.exists() && !refresh {
+            Ok(false)
+        } else {
+            if refresh && issue_path.exists() {
+                fs::remove_dir_all(&issue_path)?;
+            }
+            fs::create_dir_all(&issue_path)?;
+
+            Ok(true)
+        }
+    }
+
+    fn print_skip_message(&self, issue: &Issue, issue_path: &PathBuf) {
+        println!(
+            "Issue {} already downloaded at {}, skipping (use --refresh to re-download)",
+            issue,
+            issue_path.display()
+        );
+    }
+
+    async fn fetch_issue(&self, issue: &Issue) -> Result<Issue, PhrackDownloaderError> {
+        let issue_articles_html = self.fetch_html(&self.issue_url(issue)).await?;
+        println!("Fetching metadata for issue {}", issue);
+
+        Ok(parse_articles(&issue_articles_html, issue)?)
     }
 
     async fn fetch_url(&self, url: &str) -> Result<String, PhrackDownloaderError> {
@@ -100,17 +129,21 @@ impl Downloader {
             article_url.article_uri_path
         )
     }
-    fn article_path(&self, article: &Article) -> PathBuf {
-        let download_path = self.config.download_path();
+    fn issue_path(&self, issue: &Issue) -> PathBuf {
+        self.config
+            .download_path()
+            .join(issue.issue_number.to_string())
+    }
 
-        download_path.join(format!(
-            "{}/{}.txt",
-            article.issue.issue_number, article.article_number
-        ))
+    fn article_path(&self, article: &Article) -> PathBuf {
+        self.issue_path(&article.issue)
+            .join(format!("{}.txt", article.article_number))
     }
 
     async fn download_articles(&self, issue: &Vec<Issue>) -> Result<(), PhrackDownloaderError> {
         let all_articles: Vec<Article> = issue.iter().flat_map(|i| i.articles.clone()).collect();
+        println!("Starting to download {} articles", all_articles.len());
+        let start_time = std::time::Instant::now();
 
         let stream = stream::iter(all_articles.into_iter().map(|article| async move {
             let body = self.fetch_url(&self.article_url(&article)).await?;
@@ -134,6 +167,7 @@ impl Downloader {
                 }
             }
         }
+        println!("Download done in {:.2?}", start_time.elapsed());
         Ok(())
     }
 }
