@@ -54,11 +54,17 @@ fn config_path() -> PathBuf {
 }
 
 impl Config {
-    pub fn get_value(&self, key: &ConfigKey) -> String {
+    pub fn get_as_str(&self, key: &ConfigKey) -> String {
         match key {
             ConfigKey::DownloadPath => self.download_path.display().to_string(),
-            ConfigKey::PhrackArchiveUrl => self.phrack_archive_url.to_string(),
+            ConfigKey::PhrackArchiveUrl => self.phrack_archive_url.as_str().to_string(),
         }
+    }
+    pub fn download_path(&self) -> &PathBuf {
+        &self.download_path
+    }
+    pub fn phrack_archive_url(&self) -> &PhrackArchiveUrl {
+        &self.phrack_archive_url
     }
 
     pub fn set_value(&mut self, key: &ConfigKey, value: &str) {

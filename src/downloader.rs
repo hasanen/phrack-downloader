@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 use crate::config::Config;
+use crate::models::article::Article;
+use crate::models::issue::Issue;
+use crate::phrack::html_parser::{parse_articles, parse_issues};
 use crate::phrack_downloader_error::PhrackDownloaderError;
 use futures::stream::{self, StreamExt};
-use regex::Regex;
 use reqwest;
-use scraper::{Html, Selector};
+use scraper::Html;
 use std::{
     fs::{self, File},
     io::Write,
@@ -15,12 +17,7 @@ use std::{
 pub struct Downloader {
     config: Config,
 }
-#[derive(Debug)]
-struct ArticleUrl {
-    issue_number: u32,
-    article_number: u32,
-    article_uri_path: String,
-}
+
 impl Downloader {
     pub fn new(config: Config) -> Self {
         Self { config }
@@ -30,36 +27,30 @@ impl Downloader {
         println!("Checking available issues");
         let issues_url = self.issues_url();
         let document = self.fetch_html(&issues_url).await?;
-        let issues = self.parse_issues(&document)?;
+        let issues = parse_issues(&document)?;
 
         println!("Found {} issues", issues.len());
-        for issue_number in issues {
-            self.download_issue(issue_number.parse()?, refresh).await?
+        for issue in issues {
+            self.download_issue(&issue, refresh).await?
         }
         Ok(())
     }
 
     pub async fn download_issue(
         &self,
-        issue_number: u32,
+        issue: &Issue,
         refresh: bool,
     ) -> Result<(), PhrackDownloaderError> {
-        // Placeholder for downloading a specific issue
-        let download_path = PathBuf::from(
-            self.config
-                .get_value(&crate::config::ConfigKey::DownloadPath),
-        )
-        .join(issue_number.to_string());
+        let download_path = self
+            .config
+            .download_path()
+            .join(issue.issue_number.to_string());
 
-        println!(
-            "Downloading issue {} to {}",
-            issue_number,
-            download_path.display()
-        );
+        println!("Downloading issue {} to {}", issue, download_path.display());
         if download_path.exists() && !refresh {
             println!(
                 "Issue {} already downloaded at {}, skipping (use --refresh to re-download)",
-                issue_number,
+                issue,
                 download_path.display()
             );
             return Ok(());
@@ -70,8 +61,8 @@ impl Downloader {
             fs::create_dir_all(&download_path)?;
         }
 
-        let issue_articles_html = self.fetch_html(&self.issue_url(issue_number)).await?;
-        let issue_articles = self.parse_articles(&issue_articles_html, issue_number)?;
+        let issue_articles_html = self.fetch_html(&self.issue_url(issue)).await?;
+        let issue_articles = parse_articles(&issue_articles_html, issue)?;
 
         self.download_articles(&issue_articles).await?;
 
@@ -90,84 +81,32 @@ impl Downloader {
         Ok(body)
     }
 
-    fn parse_issues(&self, document: &Html) -> Result<Vec<String>, PhrackDownloaderError> {
-        let selector = Selector::parse("a").unwrap();
-        let mut issues = Vec::new();
-        let re = Regex::new(r"/issues/(\d+)/").unwrap();
-
-        for element in document.select(&selector) {
-            if let Some(href) = element.value().attr("href") {
-                if let Some(captures) = re.captures(href) {
-                    issues.push(captures[1].to_string());
-                }
-            }
-        }
-
-        Ok(issues)
-    }
-
-    fn parse_articles(
-        &self,
-        document: &Html,
-        issue_number: u32,
-    ) -> Result<Vec<ArticleUrl>, PhrackDownloaderError> {
-        let selector = Selector::parse("a").unwrap();
-        let mut articles = Vec::new();
-        let re = Regex::new(&format!(r"/issues/{}/([\w-]+).txt", issue_number)).unwrap();
-
-        for element in document.select(&selector) {
-            if let Some(href) = element.value().attr("href") {
-                if let Some(captures) = re.captures(href) {
-                    articles.push(ArticleUrl {
-                        issue_number,
-                        article_number: captures[1].to_string().parse()?,
-                        article_uri_path: href.to_string(),
-                    });
-                }
-            }
-        }
-
-        Ok(articles)
-    }
-
     fn issues_url(&self) -> String {
-        let archive_url = self
-            .config
-            .get_value(&crate::config::ConfigKey::PhrackArchiveUrl);
+        let archive_url = self.config.phrack_archive_url();
 
         format!("{}/issues/", archive_url)
     }
 
-    fn issue_url(&self, issue_number: u32) -> String {
-        let archive_url = self
-            .config
-            .get_value(&crate::config::ConfigKey::PhrackArchiveUrl);
+    fn issue_url(&self, issue: &Issue) -> String {
+        let archive_url = self.config.phrack_archive_url();
 
-        format!("{}/issues/{}/", archive_url, issue_number)
+        format!("{}/issues/{}/", archive_url, issue.issue_number)
     }
-    fn article_url(&self, article_url: &ArticleUrl) -> String {
-        let archive_url = self
-            .config
-            .get_value(&crate::config::ConfigKey::PhrackArchiveUrl);
+    fn article_url(&self, article_url: &Article) -> String {
+        let archive_url = self.config.phrack_archive_url();
 
         format!("{}{}", archive_url, article_url.article_uri_path)
     }
-    fn article_path(&self, article: &ArticleUrl) -> PathBuf {
-        let download_path = PathBuf::from(
-            self.config
-                .get_value(&crate::config::ConfigKey::DownloadPath),
-        );
+    fn article_path(&self, article: &Article) -> PathBuf {
+        let download_path = self.config.download_path();
 
         download_path.join(format!(
             "{}/{}.txt",
-            article.issue_number, article.article_number
+            article.issue.issue_number, article.article_number
         ))
     }
 
-    async fn download_articles(
-        &self,
-        articles: &[ArticleUrl],
-    ) -> Result<(), PhrackDownloaderError> {
+    async fn download_articles(&self, articles: &[Article]) -> Result<(), PhrackDownloaderError> {
         let stream = stream::iter(articles.into_iter().map(|article| async move {
             let body = self.fetch_url(&self.article_url(article)).await?;
             Ok::<_, PhrackDownloaderError>((article, body))

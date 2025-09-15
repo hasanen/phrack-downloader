@@ -10,6 +10,8 @@ use std::process;
 
 mod config;
 mod downloader;
+mod models;
+mod phrack;
 mod phrack_downloader_error;
 mod strict_string;
 use crate::config::{ConfigKey, load_config, save_config};
@@ -92,11 +94,11 @@ async fn main() {
 
                 table.add_row(vec![
                     format!("{}", config_key.as_arg()),
-                    config.get_value(&config_key),
+                    config.get_as_str(&config_key),
                 ]);
             } else {
                 for key in all::<ConfigKey>().collect::<Vec<_>>() {
-                    table.add_row(vec![format!("{}", key.as_arg()), config.get_value(&key)]);
+                    table.add_row(vec![format!("{}", key.as_arg()), config.get_as_str(&key)]);
                 }
             }
 
@@ -112,7 +114,7 @@ async fn main() {
                     Err(e) => handle_error(&e),
                 };
             } else if let Some(issue) = args.issue {
-                match downloader.download_issue(issue, refresh).await {
+                match downloader.download_issue(&issue.into(), refresh).await {
                     Ok(_) => {}
                     Err(e) => handle_error(&e),
                 }
