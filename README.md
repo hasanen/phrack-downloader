@@ -102,7 +102,6 @@ cargo run -- download-issue --all-issues --refresh
 ### Commands TBD
 
 ```sh
-cargo run -- check-new-issues # Check if there are new issues
 cargo run -- export-issue --issue 1 --format txt --output-path ./path # generates single .txt of all articles
 cargo run -- export-issue --all-issues --format txt --output-path ./path # generates single .txt of all articles per publication/issue
 cargo run -- sync-with-calibre # ability to sync generated txt, pdf and epub files with calibre library, with proper metadata (eg. using series-field)
