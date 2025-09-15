@@ -42,3 +42,4 @@ macro_rules! strict_string {
 }
 
 strict_string!(PhrackArchiveUrl);
+strict_string!(PhrackArticleUrl);

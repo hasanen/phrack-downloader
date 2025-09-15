@@ -40,7 +40,7 @@ pub fn parse_articles(document: &Html, issue: &Issue) -> Result<Issue, PhrackDow
                     articles.push(Article {
                         issue: issue.clone(),
                         article_number: captures[1].to_string().parse()?,
-                        article_uri_path: href.to_string(),
+                        article_uri_path: href.to_string().into(),
                     });
                 }
                 if &captures[2] == "pdf" {
@@ -60,5 +60,6 @@ pub fn parse_articles(document: &Html, issue: &Issue) -> Result<Issue, PhrackDow
         issue_number: issue.issue_number,
         phrack_pdf: ready_made_pdf,
         articles: articles.clone(),
+        ..issue.clone()
     })
 }

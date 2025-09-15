@@ -7,6 +7,7 @@ use crate::phrack_downloader_error::PhrackDownloaderError;
 use futures::stream::{self, StreamExt};
 use reqwest;
 use scraper::Html;
+use std::vec;
 use std::{
     fs::{self, File},
     io::Write,
@@ -18,6 +19,7 @@ pub struct Downloader {
     config: Config,
 }
 
+#[derive(Debug, Clone)]
 struct DownloadJob {
     source_url: String,
     destination_path: PathBuf,
@@ -36,34 +38,19 @@ impl Downloader {
 
     pub async fn download_all_issues(&self, refresh: bool) -> Result<(), PhrackDownloaderError> {
         println!("Checking available issues");
-        let issues_url = self.issues_url();
-        let document = self.fetch_html(&issues_url).await?;
+        println!("Fetching information for issues");
+
+        let document = self.fetch_html(&self.issues_url()).await?;
         let issues = parse_issues(&document)?;
 
         println!("Found {} issues", issues.len());
-        println!("Fetching information for issues");
-        let mut downloadable_issues: Vec<Issue> = vec![];
+
+        let mut download_jobs = vec![];
+
         for issue in issues {
-            let issue_path = self.issue_path(&issue);
-
-            if self.continue_issue_download(&issue, refresh)? {
-                downloadable_issues.push(self.fetch_issue(&issue).await?)
-            } else {
-                self.print_skip_message(&issue, &issue_path);
-            }
+            download_jobs.extend(self.issue_articles_to_dl_jobs(&issue, refresh).await?);
         }
-        let download_jobs = downloadable_issues
-            .iter()
-            .filter_map(|issue| {
-                if issue.phrack_pdf.is_some() {
-                    Some(self.download_phrack_pdf(&issue))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<DownloadJob>>();
 
-        self.download_articles(&downloadable_issues).await?;
         self.download_jobs(&download_jobs).await?;
 
         Ok(())
@@ -74,50 +61,13 @@ impl Downloader {
         issue: &Issue,
         refresh: bool,
     ) -> Result<(), PhrackDownloaderError> {
-        let issue_path = self.issue_path(issue);
+        println!("Fetching information for issue");
 
-        if !self.continue_issue_download(issue, refresh)? {
-            self.print_skip_message(issue, &issue_path);
-            return Ok(());
-        }
-        let mut download_jobs = vec![];
+        let download_jobs = self.issue_articles_to_dl_jobs(&issue, refresh).await?;
 
-        let issue = self.fetch_issue(issue).await?;
-        if issue.phrack_pdf.is_some() {
-            //download_jobs.push(issue.into());
-            download_jobs.push(self.download_phrack_pdf(&issue));
-        }
-        self.download_articles(&issue.into()).await?;
         self.download_jobs(&download_jobs).await?;
 
         Ok(())
-    }
-
-    fn continue_issue_download(
-        &self,
-        issue: &Issue,
-        refresh: bool,
-    ) -> Result<bool, PhrackDownloaderError> {
-        let issue_path = self.issue_path(issue);
-
-        if issue_path.exists() && !refresh {
-            Ok(false)
-        } else {
-            if refresh && issue_path.exists() {
-                fs::remove_dir_all(&issue_path)?;
-            }
-            fs::create_dir_all(&issue_path)?;
-
-            Ok(true)
-        }
-    }
-
-    fn print_skip_message(&self, issue: &Issue, issue_path: &PathBuf) {
-        println!(
-            "Issue {} already downloaded at {}, skipping (use --refresh to re-download)",
-            issue,
-            issue_path.display()
-        );
     }
 
     async fn fetch_issue(&self, issue: &Issue) -> Result<Issue, PhrackDownloaderError> {
@@ -169,44 +119,63 @@ impl Downloader {
             .join(format!("{}.txt", article.article_number))
     }
 
-    fn download_phrack_pdf(&self, issue: &Issue) -> DownloadJob {
-        let phrack_pdf = issue.phrack_pdf.as_ref().unwrap();
+    async fn issue_articles_to_dl_jobs(
+        &self,
+        issue: &Issue,
+        refresh: bool,
+    ) -> Result<Vec<DownloadJob>, PhrackDownloaderError> {
+        let mut jobs = vec![];
 
-        DownloadJob {
-            source_url: format!("{}{}", self.issue_url(issue), phrack_pdf.filename),
-            destination_path: self.issue_path(issue).join(phrack_pdf.filename.to_string()),
+        if self.continue_issue_download(&issue, refresh)? {
+            let issue = self.fetch_issue(issue).await?;
+
+            issue.articles.iter().for_each(|article| {
+                jobs.push(DownloadJob {
+                    source_url: self.article_url(article),
+                    destination_path: self.article_path(article),
+                });
+            });
+
+            if let Some(phrack_pdf) = issue.phrack_pdf.clone() {
+                jobs.push(DownloadJob {
+                    source_url: format!("{}{}", self.issue_url(&issue), phrack_pdf.filename),
+                    destination_path: self
+                        .issue_path(&issue)
+                        .join(phrack_pdf.filename.to_string()),
+                });
+            }
+        } else {
+            let issue_path = self.issue_path(issue);
+            self.print_skip_message(&issue, &issue_path);
+        }
+
+        Ok(jobs)
+    }
+    fn continue_issue_download(
+        &self,
+        issue: &Issue,
+        refresh: bool,
+    ) -> Result<bool, PhrackDownloaderError> {
+        let issue_path = self.issue_path(issue);
+
+        if issue_path.exists() && !refresh {
+            Ok(false)
+        } else {
+            if refresh && issue_path.exists() {
+                fs::remove_dir_all(&issue_path)?;
+            }
+            fs::create_dir_all(&issue_path)?;
+
+            Ok(true)
         }
     }
 
-    async fn download_articles(&self, issue: &Vec<Issue>) -> Result<(), PhrackDownloaderError> {
-        let all_articles: Vec<Article> = issue.iter().flat_map(|i| i.articles.clone()).collect();
-        println!("Starting to download {} articles", all_articles.len());
-        let start_time = std::time::Instant::now();
-
-        let stream = stream::iter(all_articles.into_iter().map(|article| async move {
-            let body = self.fetch_url(&self.article_url(&article)).await?;
-            Ok::<_, PhrackDownloaderError>((article, body))
-        }))
-        .buffer_unordered(3);
-
-        let stream = tokio_stream::StreamExt::chunks_timeout(stream, 3, Duration::from_secs(20));
-
-        let chunks: Vec<_> = stream.collect().await;
-        let results = chunks.into_iter().flatten();
-        for r in results {
-            match r {
-                Ok((article, body)) => {
-                    let path = self.article_path(&article);
-                    let mut file = File::create(path)?;
-                    file.write_all(body.as_bytes())?;
-                }
-                Err(e) => {
-                    eprintln!("Error downloading article: {}", e);
-                }
-            }
-        }
-        println!("Download done in {:.2?}", start_time.elapsed());
-        Ok(())
+    fn print_skip_message(&self, issue: &Issue, issue_path: &PathBuf) {
+        println!(
+            "Issue {} already downloaded at {}, skipping (use --refresh to re-download)",
+            issue,
+            issue_path.display()
+        );
     }
 
     async fn download_jobs(&self, jobs: &Vec<DownloadJob>) -> Result<(), PhrackDownloaderError> {
