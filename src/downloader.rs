@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 use crate::config::Config;
-use crate::models::article::Article;
+use crate::models::article::{self, Article};
 use crate::models::issue::Issue;
 use crate::phrack::html_parser::{parse_articles, parse_issues};
 use crate::phrack_downloader_error::PhrackDownloaderError;
@@ -62,11 +62,17 @@ impl Downloader {
         }
 
         let issue_articles_html = self.fetch_html(&self.issue_url(issue)).await?;
-        let issue_articles = parse_articles(&issue_articles_html, issue)?;
+        let issue = parse_articles(&issue_articles_html, issue)?;
 
-        self.download_articles(&issue_articles).await?;
+        self.download_articles(&issue.into()).await?;
 
         Ok(())
+    }
+
+    async fn fetch_url(&self, url: &str) -> Result<String, PhrackDownloaderError> {
+        let body = reqwest::get(url).await?.text().await?;
+
+        Ok(body)
     }
 
     async fn fetch_html(&self, url: &str) -> Result<Html, PhrackDownloaderError> {
@@ -75,27 +81,24 @@ impl Downloader {
 
         Ok(document)
     }
-    async fn fetch_url(&self, url: &str) -> Result<String, PhrackDownloaderError> {
-        let body = reqwest::get(url).await?.text().await?;
-
-        Ok(body)
-    }
 
     fn issues_url(&self) -> String {
-        let archive_url = self.config.phrack_archive_url();
-
-        format!("{}/issues/", archive_url)
+        format!("{}/issues/", self.config.phrack_archive_url())
     }
 
     fn issue_url(&self, issue: &Issue) -> String {
-        let archive_url = self.config.phrack_archive_url();
-
-        format!("{}/issues/{}/", archive_url, issue.issue_number)
+        format!(
+            "{}/issues/{}/",
+            self.config.phrack_archive_url(),
+            issue.issue_number
+        )
     }
     fn article_url(&self, article_url: &Article) -> String {
-        let archive_url = self.config.phrack_archive_url();
-
-        format!("{}{}", archive_url, article_url.article_uri_path)
+        format!(
+            "{}{}",
+            self.config.phrack_archive_url(),
+            article_url.article_uri_path
+        )
     }
     fn article_path(&self, article: &Article) -> PathBuf {
         let download_path = self.config.download_path();
@@ -106,9 +109,11 @@ impl Downloader {
         ))
     }
 
-    async fn download_articles(&self, articles: &[Article]) -> Result<(), PhrackDownloaderError> {
-        let stream = stream::iter(articles.into_iter().map(|article| async move {
-            let body = self.fetch_url(&self.article_url(article)).await?;
+    async fn download_articles(&self, issue: &Vec<Issue>) -> Result<(), PhrackDownloaderError> {
+        let all_articles: Vec<Article> = issue.iter().flat_map(|i| i.articles.clone()).collect();
+
+        let stream = stream::iter(all_articles.into_iter().map(|article| async move {
+            let body = self.fetch_url(&self.article_url(&article)).await?;
             Ok::<_, PhrackDownloaderError>((article, body))
         }))
         .buffer_unordered(3);
@@ -120,7 +125,7 @@ impl Downloader {
         for r in results {
             match r {
                 Ok((article, body)) => {
-                    let path = self.article_path(article);
+                    let path = self.article_path(&article);
                     let mut file = File::create(path)?;
                     file.write_all(body.as_bytes())?;
                 }

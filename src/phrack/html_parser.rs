@@ -22,10 +22,7 @@ pub fn parse_issues(document: &Html) -> Result<Vec<Issue>, PhrackDownloaderError
     Ok(issues)
 }
 
-pub fn parse_articles(
-    document: &Html,
-    issue: &Issue,
-) -> Result<Vec<Article>, PhrackDownloaderError> {
+pub fn parse_articles(document: &Html, issue: &Issue) -> Result<Issue, PhrackDownloaderError> {
     let selector = Selector::parse("a").unwrap();
     let mut articles = Vec::new();
     let re = Regex::new(&format!(r"/issues/{}/([\w-]+).txt", issue.issue_number)).unwrap();
@@ -42,5 +39,8 @@ pub fn parse_articles(
         }
     }
 
-    Ok(articles)
+    Ok(Issue {
+        issue_number: issue.issue_number,
+        articles: articles.clone(),
+    })
 }

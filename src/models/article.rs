@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 use crate::models::issue::Issue;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Article {
     pub issue: Issue,
     pub article_number: u32,
