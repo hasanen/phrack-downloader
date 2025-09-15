@@ -52,14 +52,19 @@ impl Downloader {
                 self.print_skip_message(&issue, &issue_path);
             }
         }
+        let download_jobs = downloadable_issues
+            .iter()
+            .filter_map(|issue| {
+                if issue.phrack_pdf.is_some() {
+                    Some(self.download_phrack_pdf(&issue))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<DownloadJob>>();
 
         self.download_articles(&downloadable_issues).await?;
-
-        for issue in &downloadable_issues {
-            if issue.phrack_pdf.is_some() {
-                self.download_phrack_pdf(&issue).await?;
-            }
-        }
+        self.download_jobs(&download_jobs).await?;
 
         Ok(())
     }
@@ -75,12 +80,15 @@ impl Downloader {
             self.print_skip_message(issue, &issue_path);
             return Ok(());
         }
+        let mut download_jobs = vec![];
 
         let issue = self.fetch_issue(issue).await?;
         if issue.phrack_pdf.is_some() {
-            self.download_phrack_pdf(&issue).await?;
+            //download_jobs.push(issue.into());
+            download_jobs.push(self.download_phrack_pdf(&issue));
         }
         self.download_articles(&issue.into()).await?;
+        self.download_jobs(&download_jobs).await?;
 
         Ok(())
     }
@@ -161,15 +169,13 @@ impl Downloader {
             .join(format!("{}.txt", article.article_number))
     }
 
-    async fn download_phrack_pdf(&self, issue: &Issue) -> Result<(), PhrackDownloaderError> {
+    fn download_phrack_pdf(&self, issue: &Issue) -> DownloadJob {
         let phrack_pdf = issue.phrack_pdf.as_ref().unwrap();
 
-        let job = DownloadJob {
+        DownloadJob {
             source_url: format!("{}{}", self.issue_url(issue), phrack_pdf.filename),
             destination_path: self.issue_path(issue).join(phrack_pdf.filename.to_string()),
-        };
-
-        self.download_jobs(&job.into()).await
+        }
     }
 
     async fn download_articles(&self, issue: &Vec<Issue>) -> Result<(), PhrackDownloaderError> {
