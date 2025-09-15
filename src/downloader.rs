@@ -18,6 +18,17 @@ pub struct Downloader {
     config: Config,
 }
 
+struct DownloadJob {
+    source_url: String,
+    destination_path: PathBuf,
+}
+
+impl Into<Vec<DownloadJob>> for DownloadJob {
+    fn into(self) -> Vec<DownloadJob> {
+        vec![self]
+    }
+}
+
 impl Downloader {
     pub fn new(config: Config) -> Self {
         Self { config }
@@ -44,6 +55,12 @@ impl Downloader {
 
         self.download_articles(&downloadable_issues).await?;
 
+        for issue in &downloadable_issues {
+            if issue.phrack_pdf.is_some() {
+                self.download_phrack_pdf(&issue).await?;
+            }
+        }
+
         Ok(())
     }
 
@@ -60,7 +77,11 @@ impl Downloader {
         }
 
         let issue = self.fetch_issue(issue).await?;
+        if issue.phrack_pdf.is_some() {
+            self.download_phrack_pdf(&issue).await?;
+        }
         self.download_articles(&issue.into()).await?;
+
         Ok(())
     }
 
@@ -140,6 +161,17 @@ impl Downloader {
             .join(format!("{}.txt", article.article_number))
     }
 
+    async fn download_phrack_pdf(&self, issue: &Issue) -> Result<(), PhrackDownloaderError> {
+        let phrack_pdf = issue.phrack_pdf.as_ref().unwrap();
+
+        let job = DownloadJob {
+            source_url: format!("{}{}", self.issue_url(issue), phrack_pdf.filename),
+            destination_path: self.issue_path(issue).join(phrack_pdf.filename.to_string()),
+        };
+
+        self.download_jobs(&job.into()).await
+    }
+
     async fn download_articles(&self, issue: &Vec<Issue>) -> Result<(), PhrackDownloaderError> {
         let all_articles: Vec<Article> = issue.iter().flat_map(|i| i.articles.clone()).collect();
         println!("Starting to download {} articles", all_articles.len());
@@ -164,6 +196,35 @@ impl Downloader {
                 }
                 Err(e) => {
                     eprintln!("Error downloading article: {}", e);
+                }
+            }
+        }
+        println!("Download done in {:.2?}", start_time.elapsed());
+        Ok(())
+    }
+
+    async fn download_jobs(&self, jobs: &Vec<DownloadJob>) -> Result<(), PhrackDownloaderError> {
+        println!("Starting to process {} download jobs", jobs.len());
+        let start_time = std::time::Instant::now();
+
+        let stream = stream::iter(jobs.into_iter().map(|job| async move {
+            let body = self.fetch_url(&job.source_url).await?;
+            Ok::<_, PhrackDownloaderError>((job, body))
+        }))
+        .buffer_unordered(3);
+
+        let stream = tokio_stream::StreamExt::chunks_timeout(stream, 3, Duration::from_secs(20));
+
+        let chunks: Vec<_> = stream.collect().await;
+        let results = chunks.into_iter().flatten();
+        for r in results {
+            match r {
+                Ok((job, body)) => {
+                    let mut file = File::create(&job.destination_path)?;
+                    file.write_all(body.as_bytes())?;
+                }
+                Err(e) => {
+                    eprintln!("Error in download job: {}", e);
                 }
             }
         }
