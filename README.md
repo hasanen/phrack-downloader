@@ -103,8 +103,8 @@ cargo run -- download-issue --all-issues --refresh
 
 ```sh
 cargo run -- check-new-issues # Check if there are new issues
-cargo run -- convert-issue --issue 1 --format txt # generates single .txt of all articles
-cargo run -- convert-issue --all-issues --format txt # generates single .txt of all articles per publication/issue
+cargo run -- export-issue --issue 1 --format txt --output-path ./path # generates single .txt of all articles
+cargo run -- export-issue --all-issues --format txt --output-path ./path # generates single .txt of all articles per publication/issue
 cargo run -- sync-with-calibre # ability to sync generated txt, pdf and epub files with calibre library, with proper metadata (eg. using series-field)
 ```
 
