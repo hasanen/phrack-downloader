@@ -10,6 +10,7 @@ use std::process;
 
 mod config;
 mod downloader;
+mod export;
 mod models;
 mod phrack;
 mod phrack_issue_manager_error;
