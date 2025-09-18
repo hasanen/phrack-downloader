@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 use crate::models::article::Article;
 use crate::models::phrack_pdf::PhrackPdf;
-use crate::phrack_downloader_error::PhrackDownloaderError;
+use crate::phrack_issue_manager_error::PhrackIssueManagerError;
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -33,7 +33,7 @@ impl Into<Vec<Issue>> for Issue {
     }
 }
 impl TryFrom<String> for Issue {
-    type Error = PhrackDownloaderError;
+    type Error = PhrackIssueManagerError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Ok(Self {

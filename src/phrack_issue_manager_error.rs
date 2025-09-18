@@ -3,7 +3,7 @@ use std::io;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum PhrackDownloaderError {
+pub enum PhrackIssueManagerError {
     #[error("HTTP error: {0}")]
     Reqwest(#[from] reqwest::Error),
     #[error("Parse int error: {0}")]

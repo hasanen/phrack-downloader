@@ -12,11 +12,11 @@ mod config;
 mod downloader;
 mod models;
 mod phrack;
-mod phrack_downloader_error;
+mod phrack_issue_manager_error;
 mod strict_string;
 use crate::config::{ConfigKey, load_config, save_config};
 use crate::downloader::Downloader;
-use crate::phrack_downloader_error::PhrackDownloaderError;
+use crate::phrack_issue_manager_error::PhrackIssueManagerError;
 
 #[derive(Copy, Clone, Debug)]
 enum ExitCode {
@@ -125,7 +125,7 @@ async fn main() {
     process::exit(ExitCode::Success.as_i32());
 }
 
-fn handle_error(error: &PhrackDownloaderError) {
+fn handle_error(error: &PhrackIssueManagerError) {
     let exit_code = match error {
         _ => ExitCode::GenericError,
     };

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use crate::{phrack_downloader_error::PhrackDownloaderError, strict_string::PhrackArchiveUrl};
+use crate::{phrack_issue_manager_error::PhrackIssueManagerError, strict_string::PhrackArchiveUrl};
 use clap::ValueEnum;
 use directories_next::UserDirs;
 use enum_iterator::Sequence;
@@ -19,7 +19,7 @@ pub struct Config {
     phrack_archive_url: PhrackArchiveUrl,
 }
 
-pub fn load_config() -> Result<Config, PhrackDownloaderError> {
+pub fn load_config() -> Result<Config, PhrackIssueManagerError> {
     if !config_path().exists() {
         std::fs::create_dir_all(config_dir())?;
         let default_config = Config {
@@ -33,7 +33,7 @@ pub fn load_config() -> Result<Config, PhrackDownloaderError> {
 
     Ok(config)
 }
-pub fn save_config(config: &Config) -> Result<(), PhrackDownloaderError> {
+pub fn save_config(config: &Config) -> Result<(), PhrackIssueManagerError> {
     let toml_str = toml::to_string_pretty(&config)?;
     std::fs::write(config_path(), toml_str)?;
 

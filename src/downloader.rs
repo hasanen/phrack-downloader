@@ -3,7 +3,7 @@ use crate::config::Config;
 use crate::models::article::Article;
 use crate::models::issue::Issue;
 use crate::phrack::html_parser::{parse_articles, parse_issues};
-use crate::phrack_downloader_error::PhrackDownloaderError;
+use crate::phrack_issue_manager_error::PhrackIssueManagerError;
 use futures::stream::{self, StreamExt};
 use reqwest;
 use scraper::Html;
@@ -36,7 +36,7 @@ impl Downloader {
         Self { config }
     }
 
-    pub async fn download_all_issues(&self, refresh: bool) -> Result<(), PhrackDownloaderError> {
+    pub async fn download_all_issues(&self, refresh: bool) -> Result<(), PhrackIssueManagerError> {
         println!("Checking available issues");
         println!("Fetching information for issues");
 
@@ -60,7 +60,7 @@ impl Downloader {
         &self,
         issue: &Issue,
         refresh: bool,
-    ) -> Result<(), PhrackDownloaderError> {
+    ) -> Result<(), PhrackIssueManagerError> {
         println!("Fetching information for issue");
 
         let download_jobs = self.issue_articles_to_dl_jobs(&issue, refresh).await?;
@@ -70,20 +70,20 @@ impl Downloader {
         Ok(())
     }
 
-    async fn fetch_issue(&self, issue: &Issue) -> Result<Issue, PhrackDownloaderError> {
+    async fn fetch_issue(&self, issue: &Issue) -> Result<Issue, PhrackIssueManagerError> {
         let issue_articles_html = self.fetch_html(&self.issue_url(issue)).await?;
         println!("Fetching metadata for issue {}", issue);
 
         Ok(parse_articles(&issue_articles_html, issue)?)
     }
 
-    async fn fetch_url(&self, url: &str) -> Result<String, PhrackDownloaderError> {
+    async fn fetch_url(&self, url: &str) -> Result<String, PhrackIssueManagerError> {
         let body = reqwest::get(url).await?.text().await?;
 
         Ok(body)
     }
 
-    async fn fetch_html(&self, url: &str) -> Result<Html, PhrackDownloaderError> {
+    async fn fetch_html(&self, url: &str) -> Result<Html, PhrackIssueManagerError> {
         let body = self.fetch_url(url).await?;
         let document = Html::parse_document(&body);
 
@@ -123,7 +123,7 @@ impl Downloader {
         &self,
         issue: &Issue,
         refresh: bool,
-    ) -> Result<Vec<DownloadJob>, PhrackDownloaderError> {
+    ) -> Result<Vec<DownloadJob>, PhrackIssueManagerError> {
         let mut jobs = vec![];
 
         if self.continue_issue_download(&issue, refresh)? {
@@ -155,7 +155,7 @@ impl Downloader {
         &self,
         issue: &Issue,
         refresh: bool,
-    ) -> Result<bool, PhrackDownloaderError> {
+    ) -> Result<bool, PhrackIssueManagerError> {
         let issue_path = self.issue_path(issue);
 
         if issue_path.exists() && !refresh {
@@ -178,13 +178,13 @@ impl Downloader {
         );
     }
 
-    async fn download_jobs(&self, jobs: &Vec<DownloadJob>) -> Result<(), PhrackDownloaderError> {
+    async fn download_jobs(&self, jobs: &Vec<DownloadJob>) -> Result<(), PhrackIssueManagerError> {
         println!("Starting to process {} download jobs", jobs.len());
         let start_time = std::time::Instant::now();
 
         let stream = stream::iter(jobs.into_iter().map(|job| async move {
             let body = self.fetch_url(&job.source_url).await?;
-            Ok::<_, PhrackDownloaderError>((job, body))
+            Ok::<_, PhrackIssueManagerError>((job, body))
         }))
         .buffer_unordered(3);
 

@@ -3,11 +3,11 @@
 use crate::models::article::Article;
 use crate::models::issue::Issue;
 use crate::models::phrack_pdf::PhrackPdf;
-use crate::phrack_downloader_error::PhrackDownloaderError;
+use crate::phrack_issue_manager_error::PhrackIssueManagerError;
 use regex::Regex;
 use scraper::{Html, Selector};
 
-pub fn parse_issues(document: &Html) -> Result<Vec<Issue>, PhrackDownloaderError> {
+pub fn parse_issues(document: &Html) -> Result<Vec<Issue>, PhrackIssueManagerError> {
     let selector = Selector::parse("a").unwrap();
     let mut issues = Vec::new();
     let re = Regex::new(r"/issues/(\d+)/").unwrap();
@@ -23,7 +23,7 @@ pub fn parse_issues(document: &Html) -> Result<Vec<Issue>, PhrackDownloaderError
     Ok(issues)
 }
 
-pub fn parse_articles(document: &Html, issue: &Issue) -> Result<Issue, PhrackDownloaderError> {
+pub fn parse_articles(document: &Html, issue: &Issue) -> Result<Issue, PhrackIssueManagerError> {
     let selector = Selector::parse("a").unwrap();
     let mut articles = Vec::new();
     let re = Regex::new(&format!(
