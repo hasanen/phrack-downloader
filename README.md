@@ -1,4 +1,4 @@
-# phrack-downloader
+# phrack-issue-manager
 
 A command-line tool for managing and downloading Phrack magazine issues.
 
@@ -23,8 +23,8 @@ Please read the [Commit Message Guidelines](#commit-message-guidelines) section 
      ```
 2. **Clone the repository**
    ```sh
-   git clone https://github.com/hasanen/phrack-downloader.git
-   cd phrack-downloader
+   git clone https://github.com/hasanen/phrack-issue-manager.git
+   cd phrack-issue-manager
    ```
 3. **Build the project**
    ```sh

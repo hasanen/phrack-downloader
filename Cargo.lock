@@ -1208,7 +1208,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "phrack-downloader"
+name = "phrack-issue-manager"
 version = "0.1.0"
 dependencies = [
  "clap",
