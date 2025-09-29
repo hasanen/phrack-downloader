@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+use crate::config;
 use crate::models::article::Article;
 use crate::models::phrack_pdf::PhrackPdf;
 use crate::phrack_issue_manager_error::PhrackIssueManagerError;
@@ -45,5 +46,24 @@ impl TryFrom<String> for Issue {
 impl fmt::Display for Issue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.issue_number)
+    }
+}
+
+impl Issue {
+    pub fn all_issues() -> Result<Vec<Issue>, PhrackIssueManagerError> {
+        let config = config::load_config()?;
+        let subfolders = config.download_path().read_dir()?;
+
+        let issues: Result<Vec<Issue>, PhrackIssueManagerError> = subfolders
+            .map(|entry| {
+                let entry = entry?;
+                let file_name = entry.file_name();
+                let issue_number_str = file_name.to_string_lossy();
+                let issue_number = issue_number_str.parse::<u32>()?;
+                Ok(Issue::from(issue_number))
+            })
+            .collect();
+
+        Ok(issues?)
     }
 }

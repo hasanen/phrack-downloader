@@ -6,6 +6,7 @@
 use clap::{ArgGroup, Parser, Subcommand};
 use comfy_table::Table;
 use enum_iterator::all;
+use std::path::PathBuf;
 use std::process;
 
 mod config;
@@ -17,6 +18,8 @@ mod phrack_issue_manager_error;
 mod strict_string;
 use crate::config::{ConfigKey, load_config, save_config};
 use crate::downloader::Downloader;
+use crate::export::txt_export::TxtExporter;
+use crate::export::{ExportFormat, ExportOptions, Exporter};
 use crate::phrack_issue_manager_error::PhrackIssueManagerError;
 
 #[derive(Copy, Clone, Debug)]
@@ -45,6 +48,7 @@ enum Commands {
         value: Option<String>,
     },
     DownloadIssue(DownloadIssueArgs),
+    ExportIssue(ExportIssueArgs),
 }
 #[derive(Parser, Debug)]
 #[command(group(
@@ -61,6 +65,26 @@ struct DownloadIssueArgs {
 
     #[arg(long = "refresh", default_value_t = false)]
     refresh: bool,
+}
+
+#[derive(Parser, Debug)]
+#[command(group(
+    ArgGroup::new("export_issue")
+        .required(true)
+        .args(&["issue", "all_issues"])
+))]
+struct ExportIssueArgs {
+    #[arg(long)]
+    issue: Option<u32>,
+
+    #[arg(long = "all-issues", default_value_t = false)]
+    all_issues: bool,
+
+    #[arg(long = "format")]
+    format: ExportFormat,
+
+    #[arg(long = "output-folder")]
+    output_folder: PathBuf,
 }
 #[tokio::main]
 async fn main() {
@@ -90,7 +114,7 @@ async fn main() {
                             Err(e) => handle_error(&e),
                         }
                     }
-                    None => (),
+                    _none => (),
                 }
 
                 table.add_row(vec![
@@ -119,6 +143,21 @@ async fn main() {
                     Ok(_) => {}
                     Err(e) => handle_error(&e),
                 }
+            }
+        }
+        Commands::ExportIssue(args) => {
+            let options = ExportOptions {
+                output_folder: args.output_folder.clone(),
+            };
+
+            let exporter = match args.format {
+                ExportFormat::TXT => TxtExporter,
+            };
+
+            if args.all_issues {
+                exporter.export_all(&options).ok();
+            } else if let Some(issue) = args.issue {
+                exporter.export(issue.into(), &options).ok();
             }
         }
     }
